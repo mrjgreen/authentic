@@ -13,7 +13,7 @@ class PasswordHasher {
 	{
 		if (($hash = password_hash($string, PASSWORD_DEFAULT)) === false)
 		{
-			throw new \RuntimeException('Error generating hash from string, your PHP environment is probably incompatible. Try running [vendor/ircmaxell/password-compat/version-test.php] to check compatibility or use an alternative hashing strategy.');
+			throw new \RuntimeException('Error generating hash from string, your PHP environment may incompatible. Try running [vendor/ircmaxell/password-compat/version-test.php] to check compatibility.');
 		}
 
 		return $hash;

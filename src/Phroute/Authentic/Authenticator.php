@@ -110,10 +110,7 @@ class Authenticator {
             throw new PasswordRequiredException("The [$this->passwordCredentialKey] attribute is required.");
         }
 
-        if(!$user = $this->userRepository->findByLogin($credentials[$this->loginCredentialKey]))
-        {
-            throw new UserNotFoundException("The user [{$credentials[$this->loginCredentialKey]}] does not exist");
-        }
+        $user = $this->findUserByLogin($credentials[$this->loginCredentialKey]);
 
         $password = $credentials[$this->passwordCredentialKey];
 
@@ -152,6 +149,20 @@ class Authenticator {
      * Attempts to reset a user's password by matching
      * the reset code generated with the user's.
      *
+     * @param string $login
+     * @param string $resetCode
+     * @param string $newPassword Plain text password to be hashed
+     * @return bool
+     */
+    public function resetPasswordForLogin($login, $resetCode, $newPassword)
+    {
+        return $this->resetPassword($this->findUserByLogin($login), $resetCode, $newPassword);
+    }
+
+    /**
+     * Attempts to reset a user's password by matching
+     * the reset code generated with the user's.
+     *
      * @param UserInterface $user
      * @param string $resetCode
      * @param string $newPassword Plain text password to be hashed
@@ -177,12 +188,7 @@ class Authenticator {
      */
     public function generateResetTokenForLogin($login)
     {
-        if(!$user = $this->userRepository->findByLogin($login))
-        {
-            throw new UserNotFoundException("The user [$login] does not exist");
-        }
-
-        return $this->generateResetToken($user);
+        return $this->generateResetToken($this->findUserByLogin($login));
     }
 
     /**
@@ -236,49 +242,8 @@ class Authenticator {
     }
 
     /**
-     * @return bool|mixed
-     */
-    private function readAuthToken()
-    {
-        // Check the session
-        if ($authTokenArray = $this->session->get())
-        {
-            return $authTokenArray;
-        }
-
-        // Check the cookie
-        if($authCookie = $this->cookie->get())
-        {
-            return @json_decode($authCookie, true);
-        }
-
-        return false;
-    }
-
-    /**
-     * Stores the auth token in the session
-     *
-     * @param UserInterface $user
-     * @param bool $remember
-     */
-    private function storeAuthToken(UserInterface $user, $remember = false)
-    {
-        $user->setRememberToken($rememberMeToken = $this->randomStringGenerator->generate());
-
-        // Create an array of data to persist to the session and / or cookie
-        $toPersist = array($user->getId(), $rememberMeToken);
-
-        // Set sessions
-        $this->session->set($toPersist);
-
-        if ($remember)
-        {
-            $this->cookie->set(json_encode($toPersist));
-        }
-    }
-
-    /**
-     *
+     * Force an update of the remember me token. Update the user, the session and the cookie.
+     * This should be called each request to avoid replay attacks
      */
     public function refreshAuthToken()
     {
@@ -354,10 +319,70 @@ class Authenticator {
     }
 
     /**
+     * Generate a random string for authentication tokens
+     *
      * @param RandomStringGenerator $randomStringGenerator
      */
     public function setRandomStringGenerator(RandomStringGenerator $randomStringGenerator)
     {
         $this->randomStringGenerator = $randomStringGenerator;
+    }
+
+    /**
+     * Read the auth token from the session or cookie
+     *
+     * @return bool|mixed
+     */
+    private function readAuthToken()
+    {
+        // Check the session
+        if ($authTokenArray = $this->session->get())
+        {
+            return $authTokenArray;
+        }
+
+        // Check the cookie
+        if($authCookie = $this->cookie->get())
+        {
+            return @json_decode($authCookie, true);
+        }
+
+        return false;
+    }
+
+    /**
+     * Stores the auth token in the session
+     *
+     * @param UserInterface $user
+     * @param bool $remember
+     */
+    private function storeAuthToken(UserInterface $user, $remember = false)
+    {
+        $user->setRememberToken($rememberMeToken = $this->randomStringGenerator->generate());
+
+        // Create an array of data to persist to the session and / or cookie
+        $toPersist = array($user->getId(), $rememberMeToken);
+
+        // Set sessions
+        $this->session->set($toPersist);
+
+        if ($remember)
+        {
+            $this->cookie->set(json_encode($toPersist));
+        }
+    }
+
+    /**
+     * @param $login
+     * @return UserInterface
+     */
+    private function findUserByLogin($login)
+    {
+        if(!$user = $this->userRepository->findByLogin($login))
+        {
+            throw new UserNotFoundException("The user [$login] does not exist");
+        }
+
+        return $user;
     }
 }

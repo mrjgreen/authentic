@@ -10,9 +10,26 @@
  */
 class RandomStringGenerator
 {
+    /**
+     * @var bool
+     */
+    protected $forceLowSecurity;
+
+    /**
+     * @param bool $forceLowSecurity
+     */
+    public function __construct($forceLowSecurity = false)
+    {
+        $this->forceLowSecurity = $forceLowSecurity;
+    }
+
+    /**
+     * @param int $length
+     * @return string
+     */
     public function generate($length = 20)
     {
-        if (function_exists('openssl_random_pseudo_bytes')) {
+        if (!$this->forceLowSecurity && function_exists('openssl_random_pseudo_bytes')) {
             $bytes = openssl_random_pseudo_bytes($length * 2);
 
             if ($bytes === false) {

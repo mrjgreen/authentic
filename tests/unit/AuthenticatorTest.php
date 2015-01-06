@@ -121,7 +121,10 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 		$user->shouldReceive('getPassword')->andReturn('hashed_pass');
 		$this->hasher->shouldReceive('checkHash')->with($credentials['password'], 'hashed_pass')->andReturn(true);
 
-		$this->hasher->shouldReceive('needsRehash')->with('hashed_pass')->andReturn(false);
+		$this->hasher->shouldReceive('needsRehash')->with('hashed_pass')->andReturn(true);
+		$this->hasher->shouldReceive('hash')->with('baz_bat')->andReturn('new_hashed_pass');
+
+		$user->shouldReceive('setPassword')->once()->with('new_hashed_pass');
 
 		$this->userProvider->shouldReceive('findByLogin')->with($credentials['email'])->once()->andReturn($user);
 
@@ -271,6 +274,21 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 		$this->hasher->shouldReceive('hash')->with('foo_bah')->andReturn('hashed_password');
 
 		$this->assertTrue($this->authentic->resetPassword($user, 'reset_code', 'foo_bah'));
+	}
+
+	public function testResetPasswordForLogin()
+	{
+		$authentic = m::mock('Phroute\Authentic\Authenticator[resetPassword]', array(
+			$this->userProvider,
+			$this->session,
+			$this->cookie,
+			$this->hasher,
+		));
+
+		$this->userProvider->shouldReceive('findByLogin')->once()->with('test@foo')->andReturn($user = $this->getUserMock());
+
+		$authentic->shouldReceive('resetPassword')->once()->with($user, 'foo', 'bar');
+		$authentic->resetPasswordForLogin('test@foo', 'foo', 'bar');
 	}
 
 	public function testResetPasswordFailure()
