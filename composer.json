@@ -8,7 +8,6 @@
         "mockery/mockery": "0.9.*"
     },
     "autoload": {
-        "files" : ["src/Phroute/Authentic/helpers.php"],
         "psr-4": {
             "Phroute\\Authentic\\": "src/Phroute/Authentic"
         }

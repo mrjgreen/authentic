@@ -5,6 +5,8 @@ use Phroute\Authentic\Authenticator;
 
 class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 
+	const RANDOM = 'thisiscompletelyrandom';
+
 	protected $userProvider;
 
 	protected $hasher;
@@ -13,6 +15,11 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 
 	protected $cookie;
 
+	protected $random;
+
+	/**
+	 * @var Authenticator
+	 */
 	protected $authentic;
 
 	/**
@@ -23,11 +30,15 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 	public function setUp()
 	{
 		$this->authentic = new Authenticator(
-			$this->userProvider     = m::mock('Phroute\Authentic\UserRepositoryInterface'),
+			$this->userProvider     = m::mock('Phroute\Authentic\User\UserRepositoryInterface'),
 			$this->session          = m::mock('Phroute\Authentic\NamedPersistenceInterface'),
 			$this->cookie           = m::mock('Phroute\Authentic\NamedPersistenceInterface'),
 			$this->hasher    		= m::mock('Phroute\Authentic\PasswordHasher')
 		);
+
+		$this->random = m::mock('Phroute\Authentic\RandomStringGenerator');
+
+		$this->authentic->setRandomStringGenerator($this->random);
 	}
 
 	/**
@@ -38,58 +49,6 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 	public function tearDown()
 	{
 		m::close();
-	}
-
-	/**
-	 * @expectedException \Phroute\Authentic\Exception\UserNotActivatedException
-	 */
-	public function testLoggingInUnactivatedUser()
-	{
-		$user = m::mock('Phroute\Authentic\UserInterface');
-		$user->shouldReceive('isActivated')->once()->andReturn(false);
-		$user->shouldReceive('getLogin')->once()->andReturn('foo');
-
-		$this->authentic->login($user);
-	}
-
-	public function testLoggingInUser()
-	{
-		$user = m::mock('Phroute\Authentic\UserInterface');
-		$user->shouldReceive('isActivated')->once()->andReturn(true);
-		$user->shouldReceive('getId')->once()->andReturn('foo');
-		$user->shouldReceive('getPersistCode')->once()->andReturn('persist_code');
-		$user->shouldReceive('recordLogin')->once();
-
-		$this->session->shouldReceive('set')->with(array('foo', 'persist_code'))->once();
-
-		$this->authentic->login($user);
-	}
-
-	public function testLoggingInUserWithCookie()
-	{
-		$user = m::mock('Phroute\Authentic\UserInterface');
-		$user->shouldReceive('isActivated')->once()->andReturn(true);
-		$user->shouldReceive('getId')->once()->andReturn('foo');
-		$user->shouldReceive('getPersistCode')->once()->andReturn('persist_code');
-		$user->shouldReceive('recordLogin')->once();
-
-		$this->session->shouldReceive('set')->with(array('foo', 'persist_code'))->once();
-		$this->cookie->shouldReceive('set')->with(json_encode(array('foo', 'persist_code')))->once();
-
-		$this->authentic->login($user, true);
-	}
-
-	public function testLoggingInAndRemembering()
-	{
-		$authentic = m::mock('Phroute\Authentic\Authenticator[login]', array(
-			$this->userProvider,
-			$this->session,
-			$this->cookie,
-			$this->hasher,
-		));
-
-		$authentic->shouldReceive('login')->with($user = m::mock('Phroute\Authentic\UserInterface'), true)->once();
-		$authentic->loginAndRemember($user);
 	}
 
 	/**
@@ -136,19 +95,12 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 	 */
 	public function testAuthenticatingUserWithWrongPassword()
 	{
-		$this->authentic = m::mock('Phroute\Authentic\Authenticator[login]', array(
-			$this->userProvider,
-			$this->session,
-			$this->cookie,
-			$this->hasher,
-		));
-
 		$credentials = array(
 			'email'    => 'foo@bar.com',
 			'password' => 'baz_bat',
 		);
 
-		$user = $this->getMock('Phroute\Authentic\UserInterface');
+		$user = $this->getMock('Phroute\Authentic\User\UserInterface');
 
 		$this->hasher->shouldReceive('checkHash')->andReturn(false);
 
@@ -159,40 +111,37 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 
 	public function testAuthenticatingUser()
 	{
-		$this->authentic = m::mock('Phroute\Authentic\Authenticator[login]', array(
-			$this->userProvider,
-			$this->session,
-			$this->cookie,
-			$this->hasher,
-		));
-
 		$credentials = array(
 			'email'    => 'foo@bar.com',
 			'password' => 'baz_bat',
 		);
 
-		$hashedPassword = (new \Phroute\Authentic\PasswordHasher())->hash($credentials['password']);
+		$user = $this->getUserMock();
 
-		$user = m::mock('Phroute\Authentic\UserInterface');
+		$user->shouldReceive('getPassword')->andReturn('hashed_pass');
+		$this->hasher->shouldReceive('checkHash')->with($credentials['password'], 'hashed_pass')->andReturn(true);
 
-		$user->shouldReceive('getPassword')->andReturn($hashedPassword);
-		$this->hasher->shouldReceive('checkHash')
-			->with($credentials['password'], $hashedPassword)
-			->andReturn(true);
-
-		$this->hasher->shouldReceive('needsRehash')->with($hashedPassword)->andReturn(false);
+		$this->hasher->shouldReceive('needsRehash')->with('hashed_pass')->andReturn(false);
 
 		$this->userProvider->shouldReceive('findByLogin')->with($credentials['email'])->once()->andReturn($user);
 
-		$user->shouldReceive('clearResetPassword')->once();
+		$user->shouldReceive('setResetPasswordToken')->with(null)->once();
 
-		$this->authentic->shouldReceive('login')->with($user, false)->once();
-		$this->authentic->authenticate($credentials);
+		$this->random->shouldReceive('generate')->andReturn(self::RANDOM);
+
+		$user->shouldReceive('setRememberToken')->once();
+		$user->shouldReceive('getId')->once()->andReturn('foo');
+		$user->shouldReceive('onLogin')->once();
+
+		$this->session->shouldReceive('set')->with(array('foo', self::RANDOM))->once();
+		$this->cookie->shouldReceive('set')->with(json_encode(array('foo', self::RANDOM)))->once();
+
+		$this->authentic->authenticate($credentials, true);
 	}
 
 	public function testCheckLoggingOut()
 	{
-		$this->authentic->setUser(m::mock('Phroute\Authentic\UserInterface'));
+		$this->authentic->setUser($this->getUserMock());
 		$this->session->shouldReceive('get')->once();
 		$this->session->shouldReceive('forget')->once();
 		$this->cookie->shouldReceive('get')->once();
@@ -202,34 +151,23 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 		$this->assertNull($this->authentic->getUser());
 	}
 
-	public function testCheckingUserWhenUserIsSetAndActivated()
+	public function testCheckingUserWhenUserIsSet()
 	{
-		$user = m::mock('Phroute\Authentic\UserInterface');
-
-		$user->shouldReceive('isActivated')->once()->andReturn(true);
+		$user = $this->getUserMock();
 
 		$this->authentic->setUser($user);
 		$this->assertTrue($this->authentic->check());
 	}
 
-	public function testCheckingUserWhenUserIsSetAndNotActivated()
-	{
-		$user = m::mock('Phroute\Authentic\UserInterface');
-		$user->shouldReceive('isActivated')->once()->andReturn(false);
-
-		$this->authentic->setUser($user);
-		$this->assertFalse($this->authentic->check());
-	}
 
 	public function testCheckingUserChecksSessionFirst()
 	{
 		$this->session->shouldReceive('get')->once()->andReturn(array('foo', 'persist_code'));
 		$this->cookie->shouldReceive('get')->never();
 
-		$this->userProvider->shouldReceive('findById')->andReturn($user = m::mock('Phroute\Authentic\UserInterface'));
+		$this->userProvider->shouldReceive('findById')->andReturn($user = $this->getUserMock());
 
-		$user->shouldReceive('checkPersistCode')->with('persist_code')->once()->andReturn(true);
-		$user->shouldReceive('isActivated')->once()->andReturn(true);
+		$user->shouldReceive('getRememberToken')->once()->andReturn('persist_code');
 
 		$this->assertTrue($this->authentic->check());
 	}
@@ -247,9 +185,9 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 	{
 		$this->session->shouldReceive('get')->once()->andReturn(array('foo', 'persist_code'));
 
-		$this->userProvider->shouldReceive('findById')->andReturn($user = m::mock('Phroute\Authentic\UserInterface'));
+		$this->userProvider->shouldReceive('findById')->andReturn($user = $this->getUserMock());
 
-		$user->shouldReceive('checkPersistCode')->with('persist_code')->once()->andReturn(false);
+		$user->shouldReceive('getRememberToken')->once()->andReturn('persist_code_wrong');
 
 		$this->assertFalse($this->authentic->check());
 	}
@@ -259,10 +197,9 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 		$this->session->shouldReceive('get')->once();
 		$this->cookie->shouldReceive('get')->once()->andReturn(json_encode(array('foo', 'persist_code')));
 
-		$this->userProvider->shouldReceive('findById')->andReturn($user = m::mock('Phroute\Authentic\UserInterface'));
+		$this->userProvider->shouldReceive('findById')->andReturn($user = $this->getUserMock());
 
-		$user->shouldReceive('checkPersistCode')->with('persist_code')->once()->andReturn(true);
-		$user->shouldReceive('isActivated')->once()->andReturn(true);
+		$user->shouldReceive('getRememberToken')->andReturn('persist_code');
 
 		$this->assertTrue($this->authentic->check());
 	}
@@ -297,10 +234,7 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 			'password' => 'sdf_sdf',
 		);
 
-		$user = m::mock('Phroute\Authentic\UserInterface');
-		$user->shouldReceive('getActivationCode')->never();
-		$user->shouldReceive('attemptActivation')->never();
-		$user->shouldReceive('isActivated')->once()->andReturn(false);
+		$user = $this->getUserMock();
 
 		$this->hasher->shouldReceive('hash')
 			->with($credentials['password'])
@@ -308,34 +242,9 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 
 		$credentialsExpected['password'] = 'abcdefg';
 
-		$this->userProvider->shouldReceive('create')->with($credentialsExpected)->once()->andReturn($user);
+		$this->userProvider->shouldReceive('registerUser')->with($credentialsExpected)->once()->andReturn($user);
 
 		$this->assertEquals($user, $registeredUser = $this->authentic->register($credentials));
-		$this->assertFalse($registeredUser->isActivated());
-	}
-
-	public function testRegisteringUserWithActivationDone()
-	{
-		$credentialsExpected = $credentials = array(
-			'email'    => 'foo@bar.com',
-			'password' => 'sdf_sdf',
-		);
-
-		$user = m::mock('Phroute\Authentic\UserInterface');
-		$user->shouldReceive('getActivationCode')->once()->andReturn('activation_code_here');
-		$user->shouldReceive('attemptActivation')->with('activation_code_here')->once();
-		$user->shouldReceive('isActivated')->once()->andReturn(true);
-
-		$this->hasher->shouldReceive('hash')
-			->with($credentials['password'])
-			->andReturn('abcdefg');
-
-		$credentialsExpected['password'] = 'abcdefg';
-
-		$this->userProvider->shouldReceive('create')->with($credentialsExpected)->once()->andReturn($user);
-
-		$this->assertEquals($user, $registeredUser = $this->authentic->register($credentials, true));
-		$this->assertTrue($registeredUser->isActivated());
 	}
 
 	public function testGetUserWithCheck()
@@ -353,24 +262,114 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 
 	public function testResetPassword()
 	{
-		$user = m::mock('Phroute\Authentic\UserInterface');
+		$user = $this->getUserMock();
 
-		$user->shouldReceive('checkResetPasswordCode')->with('reset_code')->andReturn(true);
+		$user->shouldReceive('getResetPasswordToken')->andReturn('reset_code');
+
 		$user->shouldReceive('setPassword')->with('hashed_password');
 
 		$this->hasher->shouldReceive('hash')->with('foo_bah')->andReturn('hashed_password');
 
-		$this->authentic->resetPassword($user, 'reset_code', 'foo_bah');
+		$this->assertTrue($this->authentic->resetPassword($user, 'reset_code', 'foo_bah'));
 	}
 
 	public function testResetPasswordFailure()
 	{
-		$user = m::mock('Phroute\Authentic\UserInterface');
+		$user = $this->getUserMock();
 
-		$user->shouldReceive('checkResetPasswordCode')->with('reset_code')->andReturn(false);
+		$user->shouldReceive('getResetPasswordToken')->andReturn('wrong_reset_code');
 
 		$this->authentic->resetPassword($user, 'reset_code', 'foo_bah');
 
 		$user->shouldNotHaveReceived('setPassword');
+	}
+
+	public function testGenerateResetToken()
+	{
+		$this->random->shouldReceive('generate')->andReturn(self::RANDOM);
+
+		$user = $this->getUserMock();
+
+		$user->shouldReceive('setResetPasswordToken')->once()->with(self::RANDOM);
+
+		$token = $this->authentic->generateResetToken($user);
+
+		$this->assertEquals(self::RANDOM, $token);
+	}
+
+
+	public function testGenerateResetTokenForLogin()
+	{
+		$this->random->shouldReceive('generate')->andReturn(self::RANDOM);
+
+		$user = $this->getUserMock();
+
+		$this->userProvider->shouldReceive('findByLogin')->once()->with('foo@bar.com')->andReturn($user);
+
+		$user->shouldReceive('setResetPasswordToken')->once()->with(self::RANDOM);
+
+		$token = $this->authentic->generateResetTokenForLogin('foo@bar.com');
+
+		$this->assertEquals(self::RANDOM, $token);
+	}
+
+	/**
+	 * @expectedException \Phroute\Authentic\Exception\UserNotFoundException
+	 */
+	public function testGenerateResetTokenForNonExistentLogin()
+	{
+		$this->userProvider->shouldReceive('findByLogin')->andReturn(false);
+
+		$this->authentic->generateResetTokenForLogin('foo@bar.com');
+	}
+
+	public function testSettingCredentialNames()
+	{
+		$this->authentic->setLoginCredentialName('login_test');
+		$this->authentic->setPasswordCredentialName('password_test');
+	}
+
+	public function testItRefreshesAuthTokensNoRemember()
+	{
+		$this->cookie->shouldReceive('get')->andReturn(false);
+		$this->cookie->shouldReceive('set')->never();
+		$this->session->shouldReceive('set')->with(array('userId', self::RANDOM));
+
+		$this->random->shouldReceive('generate')->andReturn(self::RANDOM);
+
+		$user = $this->getUserMock();
+
+		$user->shouldReceive('setRememberToken')->with(self::RANDOM);
+		$user->shouldReceive('getId')->andReturn('userId');
+
+		$this->authentic->setUser($user);
+
+		$this->authentic->refreshAuthToken();
+	}
+
+	public function testItRefreshesAuthTokensWithRemember()
+	{
+		$this->cookie->shouldReceive('get')->andReturn(true);
+		$this->cookie->shouldReceive('set')->once()->with(json_encode(array('userId', self::RANDOM)));
+		$this->session->shouldReceive('set')->once()->with(array('userId', self::RANDOM));
+
+		$this->random->shouldReceive('generate')->andReturn(self::RANDOM);
+
+		$user = $this->getUserMock();
+
+		$user->shouldReceive('setRememberToken')->with(self::RANDOM);
+		$user->shouldReceive('getId')->andReturn('userId');
+
+		$this->authentic->setUser($user);
+
+		$this->authentic->refreshAuthToken();
+	}
+
+	/**
+	 * @return \Phroute\Authentic\User\UserInterface
+	 */
+	private function getUserMock()
+	{
+		return m::mock('Phroute\Authentic\User\UserInterface');
 	}
 }

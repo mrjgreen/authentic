@@ -1,12 +1,14 @@
 <?php namespace Phroute\Authentic;
 
+use Phroute\Authentic\Exception\AuthenticationException;
 use Phroute\Authentic\Exception\LoginRequiredException;
 use Phroute\Authentic\Exception\PasswordRequiredException;
-use Phroute\Authentic\Exception\UserNotActivatedException;
 use Phroute\Authentic\Exception\UserNotFoundException;
 use Phroute\Authentic\Exception\WrongPasswordException;
 use Phroute\Authentic\Persistence\NativeCookie;
 use Phroute\Authentic\Persistence\NativeSession;
+use Phroute\Authentic\User\UserRepositoryInterface;
+use Phroute\Authentic\User\UserInterface;
 
 class Authenticator {
 
@@ -23,7 +25,7 @@ class Authenticator {
     /**
      * @var bool
      */
-    protected $allowInactivedLogin = false;
+    protected $allowInactiveLogin = false;
 
     /**
      * @var UserInterface
@@ -50,6 +52,11 @@ class Authenticator {
      */
     protected $cookie;
 
+    /**
+     * @var RandomStringGenerator
+     */
+    protected $randomStringGenerator;
+
     public function __construct(
         UserRepositoryInterface $userRepository,
         NamedPersistenceInterface $session = null,
@@ -64,26 +71,21 @@ class Authenticator {
         $this->session = $session ?: new NamedPersistence('auth.user', new NativeSession());
 
         $this->cookie = $cookie ?: new NamedPersistence('auth.remember', new NativeCookie());
+
+        $this->randomStringGenerator = new RandomStringGenerator();
     }
 
     /**
      * Registers a user by giving the required credentials
-     * and an optional flag for whether to activate the user.
      *
-     * @param  array  $credentials
-     * @param  bool   $activate
+     * @param  array  $userDetails
      * @return UserInterface
      */
-    public function register(array $credentials, $activate = false)
+    public function register(array $userDetails)
     {
-        $credentials[$this->passwordCredentialKey] = $this->passwordHasher->hash($credentials[$this->passwordCredentialKey]);
+        $userDetails[$this->passwordCredentialKey] = $this->passwordHasher->hash($userDetails[$this->passwordCredentialKey]);
 
-        $user = $this->userRepository->create($credentials);
-
-        if ($activate)
-        {
-            $user->attemptActivation($user->getActivationCode());
-        }
+        $user = $this->userRepository->registerUser($userDetails);
 
         return $this->user = $user;
     }
@@ -122,21 +124,24 @@ class Authenticator {
 
         if($this->passwordHasher->needsRehash($user->getPassword()))
         {
-            $this->updatePassword($user, $password);
+            $this->setPassword($user, $password);
         }
 
-        $user->clearResetPassword();
+        $user->setResetPasswordToken(null);
 
-        $this->login($user, $remember);
+        $this->storeAuthToken($user, $remember);
 
-        return $this->user;
+        // The user model can attach login handlers to the "onLogin" event.
+        $user->onLogin();
+
+        return $this->user = $user;
     }
 
     /**
      * @param UserInterface $user
-     * @param $newPassword
+     * @param string $newPassword Plain text password, to be hashed and set against user
      */
-    public function updatePassword(UserInterface $user, $newPassword)
+    public function setPassword(UserInterface $user, $newPassword)
     {
         $hash = $this->passwordHasher->hash($newPassword);
 
@@ -148,15 +153,15 @@ class Authenticator {
      * the reset code generated with the user's.
      *
      * @param UserInterface $user
-     * @param $resetCode
-     * @param $newPassword
+     * @param string $resetCode
+     * @param string $newPassword Plain text password to be hashed
      * @return bool
      */
     public function resetPassword(UserInterface $user, $resetCode, $newPassword)
     {
-        if ($user->checkResetPasswordCode($resetCode))
+        if ($user->getResetPasswordToken() === $resetCode)
         {
-            $this->updatePassword($user, $newPassword);
+            $this->setPassword($user, $newPassword);
 
             return true;
         }
@@ -165,89 +170,103 @@ class Authenticator {
     }
 
     /**
-     * Check to see if the user is logged in and activated, and hasn't been banned or suspended.
+     * Try to find a user based on the login and set the reset token
+     *
+     * @param string $login
+     * @return string
+     */
+    public function generateResetTokenForLogin($login)
+    {
+        if(!$user = $this->userRepository->findByLogin($login))
+        {
+            throw new UserNotFoundException("The user [$login] does not exist");
+        }
+
+        return $this->generateResetToken($user);
+    }
+
+    /**
+     * Generate a reset token and set it against the user
+     *
+     * @param UserInterface $user
+     * @return string
+     */
+    public function generateResetToken(UserInterface $user)
+    {
+        $user->setResetPasswordToken($token = $this->randomStringGenerator->generate());
+
+        return $token;
+    }
+
+    /**
+     * Check to see if the user is logged in and hasn't been suspended.
      *
      * @return bool
      */
     public function check()
     {
-        if (is_null($this->user))
+        if (!is_null($this->user))
         {
-            // Check session first, follow by cookie
-            if ( ! $userArray = $this->session->get())
-            {
-                if(!$userArray = $this->cookie->get())
-                {
-                    return false;
-                }
-
-                if(!$userArray = @json_decode($userArray, true))
-                {
-                    return false;
-                }
-            }
-
-            // Now check our user is an array with two elements,
-            // the username followed by the persist code
-            if ( ! is_array($userArray) or count($userArray) !== 2)
-            {
-                return false;
-            }
-
-            list($id, $persistCode) = $userArray;
-
-            if(!$user = $this->userRepository->findById($id))
-            {
-                return false;
-            }
-
-            // Great! Let's check the session's persist code
-            // against the user. If it fails, somebody has tampered
-            // with the cookie / session data and we're not allowing
-            // a login
-            if ( ! $user->checkPersistCode($persistCode))
-            {
-                return false;
-            }
-
-            // Now we'll set the user property on the Authenticator
-            $this->user = $user;
+            return true;
         }
 
-        // Let's check our cached user is indeed activated
-        if ( ! $user = $this->getUser())
+        $tokenArray = $this->readAuthToken();
+
+        // The persistence token should be the user id and the remember me token in an array
+        if (!is_array($tokenArray) or count($tokenArray) !== 2)
         {
             return false;
         }
 
-        // Let's check our cached user is indeed activated
-        if ( ! $this->allowInactivedLogin && ! $user->isActivated())
+        list($id, $persistenceToken) = array_values($tokenArray);
+
+        if(!$user = $this->userRepository->findById($id))
         {
             return false;
         }
+
+        if ($user->getRememberToken() !== $persistenceToken)
+        {
+            return false;
+        }
+
+        $this->user = $user;
 
         return true;
     }
 
     /**
-     * Logs in the given user and sets properties
-     * in the session.
+     * @return bool|mixed
+     */
+    private function readAuthToken()
+    {
+        // Check the session
+        if ($authTokenArray = $this->session->get())
+        {
+            return $authTokenArray;
+        }
+
+        // Check the cookie
+        if($authCookie = $this->cookie->get())
+        {
+            return @json_decode($authCookie, true);
+        }
+
+        return false;
+    }
+
+    /**
+     * Stores the auth token in the session
      *
      * @param UserInterface $user
      * @param bool $remember
      */
-    public function login(UserInterface $user, $remember = false)
+    private function storeAuthToken(UserInterface $user, $remember = false)
     {
-        if ( ! $this->allowInactivedLogin && ! $user->isActivated())
-        {
-            $login = $user->getLogin();
-            throw new UserNotActivatedException("Cannot login user [$login] as they are not activated.");
-        }
-
-        $this->user = $user;
+        $user->setRememberToken($rememberMeToken = $this->randomStringGenerator->generate());
 
         // Create an array of data to persist to the session and / or cookie
-        $toPersist = array($user->getId(), $user->getPersistCode());
+        $toPersist = array($user->getId(), $rememberMeToken);
 
         // Set sessions
         $this->session->set($toPersist);
@@ -256,20 +275,19 @@ class Authenticator {
         {
             $this->cookie->set(json_encode($toPersist));
         }
-
-        // The user model can attach any handlers
-        // to the "recordLogin" event.
-        $user->recordLogin();
     }
 
     /**
-     * Alias for logging in and remembering.
      *
-     * @param UserInterface $user
      */
-    public function loginAndRemember(UserInterface $user)
+    public function refreshAuthToken()
     {
-        $this->login($user, true);
+        if(!$this->check())
+        {
+            throw new AuthenticationException("No user logged in to refresh token.");
+        }
+
+        $this->storeAuthToken($this->user, (bool)$this->cookie->get());
     }
 
     /**
@@ -336,12 +354,10 @@ class Authenticator {
     }
 
     /**
-     *
+     * @param RandomStringGenerator $randomStringGenerator
      */
-    public function allowInactivedLogin()
+    public function setRandomStringGenerator(RandomStringGenerator $randomStringGenerator)
     {
-        $this->allowInactivedLogin = true;
-
-        return $this;
+        $this->randomStringGenerator = $randomStringGenerator;
     }
 }
