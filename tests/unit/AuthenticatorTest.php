@@ -366,6 +366,17 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 	}
 
 	/**
+	 * @expectedException \Phroute\Authentic\Exception\AuthenticationException
+	 */
+	public function testItCannotRefreshNonLoggedInUser()
+	{
+		$this->session->shouldReceive('get')->andReturn(false);
+		$this->cookie->shouldReceive('get')->andReturn(false);
+
+		$this->authentic->refreshAuthToken();
+	}
+
+	/**
 	 * @return \Phroute\Authentic\User\UserInterface
 	 */
 	private function getUserMock()
