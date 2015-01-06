@@ -2,11 +2,6 @@
 
 class NativeSession implements PersistenceInterface {
 
-    public function __construct()
-    {
-        session_start();
-    }
-
     public function forget($name)
     {
         if(isset($_SESSION[$name]))

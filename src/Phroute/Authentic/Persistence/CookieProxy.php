@@ -20,11 +20,6 @@ class CookieProxy implements PersistenceInterface {
     public function forget($name)
     {
         $this->store($name, null, -(60 * 60 * 24 * 365 * 10));
-
-        if(isset($this->cookies[$name]))
-        {
-            unset($this->cookies[$name]);
-        }
     }
 
     public function set($name, $value)
@@ -34,7 +29,7 @@ class CookieProxy implements PersistenceInterface {
 
     public function get($name)
     {
-        return isset($this->cookies[$name]) ? json_decode($this->cookies[$name]) : null;
+        return isset($this->cookies[$name]) ? $this->cookies[$name] : null;
     }
 
     public function getQueuedCookies()
@@ -44,6 +39,11 @@ class CookieProxy implements PersistenceInterface {
 
     private function store($name, $value, $time)
     {
-        $this->queuedCookies[] = array($name, json_encode($value), time() + $time);
+        $this->queuedCookies[] = array($name, $value, $this->getTime($time));
+    }
+
+    public function getTime($time)
+    {
+        return time() + $time;
     }
 }

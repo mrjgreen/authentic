@@ -2,15 +2,6 @@
 
 class PasswordHasher {
 
-	public function __construct()
-	{
-		// Install https://github.com/ircmaxell/password_compat/issues/10
-		if ( ! function_exists('password_hash'))
-		{
-			throw new \RuntimeException('The function password_hash() does not exist, your PHP environment is probably incompatible. Try running [vendor/ircmaxell/password-compat/version-test.php] to check compatibility or use an alternative hashing strategy.');
-		}
-	}
-
 	/**
 	 * Hash string.
 	 *

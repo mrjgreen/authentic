@@ -1,8 +1,9 @@
-<?php
+<?php namespace Phroute\Authentic\Tests;
 
 use Mockery as m;
+use Phroute\Authentic\Authenticator;
 
-class AuthenticatorTest extends PHPUnit_Framework_TestCase {
+class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 
 	protected $userProvider;
 
@@ -21,7 +22,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase {
 	 */
 	public function setUp()
 	{
-		$this->authentic = new Phroute\Authentic\Authenticator(
+		$this->authentic = new Authenticator(
 			$this->userProvider     = m::mock('Phroute\Authentic\UserRepositoryInterface'),
 			$this->session          = m::mock('Phroute\Authentic\NamedPersistenceInterface'),
 			$this->cookie           = m::mock('Phroute\Authentic\NamedPersistenceInterface'),
@@ -40,7 +41,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase {
 	}
 
 	/**
-	 * @expectedException Phroute\Authentic\Exception\UserNotActivatedException
+	 * @expectedException \Phroute\Authentic\Exception\UserNotActivatedException
 	 */
 	public function testLoggingInUnactivatedUser()
 	{
@@ -73,7 +74,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase {
 		$user->shouldReceive('recordLogin')->once();
 
 		$this->session->shouldReceive('set')->with(array('foo', 'persist_code'))->once();
-		$this->cookie->shouldReceive('set')->with(array('foo', 'persist_code'))->once();
+		$this->cookie->shouldReceive('set')->with(json_encode(array('foo', 'persist_code')))->once();
 
 		$this->authentic->login($user, true);
 	}
@@ -92,7 +93,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase {
 	}
 
 	/**
-	 * @expectedException Phroute\Authentic\Exception\LoginRequiredException
+	 * @expectedException \Phroute\Authentic\Exception\LoginRequiredException
 	 */
 	public function testAuthenticatingUserWhenLoginIsNotProvided()
 	{
@@ -102,7 +103,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase {
 	}
 
 	/**
-	 * @expectedException Phroute\Authentic\Exception\PasswordRequiredException
+	 * @expectedException \Phroute\Authentic\Exception\PasswordRequiredException
 	 */
 	public function testAuthenticatingUserWhenPasswordIsNotProvided()
 	{
@@ -114,7 +115,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase {
 	}
 
 	/**
-	 * @expectedException Phroute\Authentic\Exception\UserNotFoundException
+	 * @expectedException \Phroute\Authentic\Exception\UserNotFoundException
 	 */
 	public function testAuthenticatingUserWhereTheUserDoesNotExist()
 	{
@@ -131,7 +132,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase {
 	}
 
 	/**
-	 * @expectedException Phroute\Authentic\Exception\WrongPasswordException
+	 * @expectedException \Phroute\Authentic\Exception\WrongPasswordException
 	 */
 	public function testAuthenticatingUserWithWrongPassword()
 	{
@@ -256,7 +257,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase {
 	public function testCheckingUserChecksSessionFirstAndThenCookie()
 	{
 		$this->session->shouldReceive('get')->once();
-		$this->cookie->shouldReceive('get')->once()->andReturn(array('foo', 'persist_code'));
+		$this->cookie->shouldReceive('get')->once()->andReturn(json_encode(array('foo', 'persist_code')));
 
 		$this->userProvider->shouldReceive('findById')->andReturn($user = m::mock('Phroute\Authentic\UserInterface'));
 

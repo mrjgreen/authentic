@@ -174,9 +174,17 @@ class Authenticator {
         if (is_null($this->user))
         {
             // Check session first, follow by cookie
-            if ( ! $userArray = $this->session->get() and ! $userArray = $this->cookie->get())
+            if ( ! $userArray = $this->session->get())
             {
-                return false;
+                if(!$userArray = $this->cookie->get())
+                {
+                    return false;
+                }
+
+                if(!$userArray = @json_decode($userArray, true))
+                {
+                    return false;
+                }
             }
 
             // Now check our user is an array with two elements,
@@ -246,7 +254,7 @@ class Authenticator {
 
         if ($remember)
         {
-            $this->cookie->set($toPersist);
+            $this->cookie->set(json_encode($toPersist));
         }
 
         // The user model can attach any handlers
