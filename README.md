@@ -11,6 +11,7 @@ use Phroute\Authentic\Authenticator;
  * Implements:
  *    public function findById($id);
  *    public function findByLogin($login);
+ *    public function registerUser(array $userDetails);
  */
 $userRepository = new UserRepository();
 
@@ -38,12 +39,4 @@ try
 
 // Aaaaand we're in...
 return true;
-~~~
-
-~~~PHP
-/**
- * By default users must be "activated" or authentication will fail,
- * but you can easily turn that off if its not required.
- */
-$auth->allowInactivedLogin();
 ~~~
