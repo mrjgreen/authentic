@@ -27,7 +27,6 @@ interface UserInterface {
      * Sets the user's password (hashed).
      *
      * @param $hashedPassword
-     * @return mixed
      */
     public function setPassword($hashedPassword);
 
@@ -35,7 +34,6 @@ interface UserInterface {
      * Sets the user's remember me token.
      *
      * @param $token
-     * @return mixed
      */
     public function setRememberToken($token);
 
@@ -50,7 +48,6 @@ interface UserInterface {
      * Sets the User's reset password token
      *
      * @param  string  $token
-     * @return bool
      */
     public function setResetPasswordToken($token);
 
@@ -63,8 +60,6 @@ interface UserInterface {
 
     /**
      * Called after a user is logged in.
-     *
-     * @return void
      */
     public function onLogin();
 
