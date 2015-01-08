@@ -70,7 +70,7 @@ class Authenticator {
 
         $this->session = $session ?: new NamedPersistence('auth.user', new NativeSession());
 
-        $this->cookie = $cookie ?: new NamedPersistence('auth.remember', new NativeCookie());
+        $this->cookie = $cookie ?: new NamedPersistence('auth_remember', new NativeCookie());
 
         $this->randomStringGenerator = new RandomStringGenerator();
     }
