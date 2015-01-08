@@ -1,11 +1,15 @@
 {
     "name" : "phroute/authentic",
     "require": {
-        "ircmaxell/password-compat": "*"
+        "ircmaxell/password-compat": "~1.0"
     },
     "require-dev": {
         "phpunit/phpunit": "~4.4",
-        "mockery/mockery": "0.9.*"
+        "mockery/mockery": "0.9.*",
+        "symfony/http-foundation": "~2.6"
+    },
+    "suggest" : {
+        "symfony/http-foundation" : "Use Symfony Session and Cookie components for auth token persistence"
     },
     "autoload": {
         "psr-4": {
