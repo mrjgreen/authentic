@@ -1,6 +1,6 @@
-<?php namespace Phroute\Authentic;
+<?php namespace Phroute\Authentic\Hash;
 
-class PasswordHasher {
+class PasswordHasher implements HasherInterface {
 
 	/**
 	 * Hash string.

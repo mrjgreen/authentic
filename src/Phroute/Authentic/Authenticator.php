@@ -5,6 +5,8 @@ use Phroute\Authentic\Exception\LoginRequiredException;
 use Phroute\Authentic\Exception\PasswordRequiredException;
 use Phroute\Authentic\Exception\UserNotFoundException;
 use Phroute\Authentic\Exception\WrongPasswordException;
+use Phroute\Authentic\Hash\HasherInterface;
+use Phroute\Authentic\Hash\PasswordHasher;
 use Phroute\Authentic\Persistence\NativeCookie;
 use Phroute\Authentic\Persistence\NativeSession;
 use Phroute\Authentic\User\UserRepositoryInterface;
@@ -23,11 +25,6 @@ class Authenticator {
     protected $passwordCredentialKey = 'password';
 
     /**
-     * @var bool
-     */
-    protected $allowInactiveLogin = false;
-
-    /**
      * @var UserInterface
      */
     protected $user;
@@ -38,7 +35,7 @@ class Authenticator {
     protected $userRepository;
 
     /**
-     * @var PasswordHasher
+     * @var HasherInterface
      */
     protected $passwordHasher;
 
@@ -61,7 +58,7 @@ class Authenticator {
         UserRepositoryInterface $userRepository,
         NamedPersistenceInterface $session = null,
         NamedPersistenceInterface $cookie = null,
-        PasswordHasher $passwordHasher = null
+        HasherInterface $passwordHasher = null
     )
     {
         $this->userRepository = $userRepository;
