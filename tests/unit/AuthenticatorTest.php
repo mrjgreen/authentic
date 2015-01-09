@@ -33,7 +33,7 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 			$this->userProvider     = m::mock('Phroute\Authentic\User\UserRepositoryInterface'),
 			$this->session          = m::mock('Phroute\Authentic\NamedPersistenceInterface'),
 			$this->cookie           = m::mock('Phroute\Authentic\NamedPersistenceInterface'),
-			$this->hasher    		= m::mock('Phroute\Authentic\PasswordHasher')
+			$this->hasher    		= m::mock('Phroute\Authentic\Hash\HasherInterface')
 		);
 
 		$this->random = m::mock('Phroute\Authentic\RandomStringGenerator');

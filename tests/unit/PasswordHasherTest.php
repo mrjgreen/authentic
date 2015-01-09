@@ -1,7 +1,7 @@
 <?php namespace Phroute\Authentic\Tests;
 
 use Mockery as m;
-use Phroute\Authentic\PasswordHasher;
+use Phroute\Authentic\Hash\PasswordHasher;
 
 class PasswordHasherTest extends \PHPUnit_Framework_TestCase {
 
