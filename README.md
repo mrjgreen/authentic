@@ -1,6 +1,9 @@
 Authentic
 =========
 
+[![Build Status](https://travis-ci.org/mrjgreen/authentic.svg?branch=master)](https://travis-ci.org/mrjgreen/authentic)
+[![Coverage Status](https://img.shields.io/coveralls/mrjgreen/authentic.svg)](https://coveralls.io/r/mrjgreen/authentic)
+
 Authentic is a simple, framwork agnostic authentication library, designed to be flexible and easy to integrate with any PHP project.
 
 ~~~PHP
