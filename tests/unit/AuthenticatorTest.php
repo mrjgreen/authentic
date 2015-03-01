@@ -239,6 +239,8 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 
 		$user = $this->getUserMock();
 
+		$this->userProvider->shouldReceive('findByLogin')->with($credentialsExpected['email'])->andReturn(null);
+
 		$this->hasher->shouldReceive('hash')
 			->with($credentials['password'])
 			->andReturn('abcdefg');
@@ -248,6 +250,24 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 		$this->userProvider->shouldReceive('registerUser')->with($credentialsExpected)->once()->andReturn($user);
 
 		$this->assertEquals($user, $registeredUser = $this->authentic->register($credentials));
+	}
+
+	/**
+	 * @expectedException \Phroute\Authentic\Exception\UserExistsException
+	 * @expectedExceptionMessage The user 'foo@bar.com' already exists.
+	 */
+	public function testRegisteringUserAlreadyExists()
+	{
+		$credentialsExpected = $credentials = array(
+			'email'    => 'foo@bar.com',
+			'password' => 'sdf_sdf',
+		);
+
+		$user = $this->getUserMock();
+
+		$this->userProvider->shouldReceive('findByLogin')->with($credentialsExpected['email'])->andReturn($user);
+
+		$this->authentic->register($credentials);
 	}
 
 	public function testGetUserWithCheck()

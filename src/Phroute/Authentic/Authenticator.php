@@ -81,14 +81,14 @@ class Authenticator {
      */
     public function register(array $userDetails)
     {
-        $userDetails[$this->passwordCredentialKey] = $this->passwordHasher->hash($userDetails[$this->passwordCredentialKey]);
-
         $email = $userDetails[$this->loginCredentialKey];
 
         if($this->userRepository->findByLogin($email))
         {
             throw new UserExistsException("The user '$email' already exists.");
         }
+
+        $userDetails[$this->passwordCredentialKey] = $this->passwordHasher->hash($userDetails[$this->passwordCredentialKey]);
 
         $user = $this->userRepository->registerUser($userDetails);
 
