@@ -3,6 +3,7 @@
 use Phroute\Authentic\Exception\AuthenticationException;
 use Phroute\Authentic\Exception\LoginRequiredException;
 use Phroute\Authentic\Exception\PasswordRequiredException;
+use Phroute\Authentic\Exception\UserExistsException;
 use Phroute\Authentic\Exception\UserNotFoundException;
 use Phroute\Authentic\Exception\WrongPasswordException;
 use Phroute\Authentic\Hash\HasherInterface;
@@ -81,6 +82,13 @@ class Authenticator {
     public function register(array $userDetails)
     {
         $userDetails[$this->passwordCredentialKey] = $this->passwordHasher->hash($userDetails[$this->passwordCredentialKey]);
+
+        $email = $userDetails[$this->loginCredentialKey];
+
+        if($this->userRepository->findByLogin($email))
+        {
+            throw new UserExistsException("The user '$email' already exists.");
+        }
 
         $user = $this->userRepository->registerUser($userDetails);
 
