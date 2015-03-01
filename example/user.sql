@@ -12,6 +12,8 @@ CREATE TABLE `user` (
   UNIQUE KEY `idx_user_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
+
+
 -- Password is: password
 INSERT INTO `user` (`id`, `firstname`, `lastname`, `email`, `password`)
 VALUES

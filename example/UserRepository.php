@@ -1,4 +1,4 @@
-<?php namespace Application\Repository;
+<?php namespace Phroute\Authentic\Application;
 
 use Phroute\Authentic\User\UserRepositoryInterface;
 use Phroute\Authentic\User\UserInterface;

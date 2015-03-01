@@ -109,17 +109,7 @@ class Authenticator {
 
         $user = $this->findUserByLogin($credentials[$this->loginCredentialKey]);
 
-        $password = $credentials[$this->passwordCredentialKey];
-
-        if(!$this->passwordHasher->checkHash($password, $user->getPassword()))
-        {
-            throw new WrongPasswordException("Incorrect password provided");
-        }
-
-        if($this->passwordHasher->needsRehash($user->getPassword()))
-        {
-            $this->setPassword($user, $password);
-        }
+        $this->checkPassword($user, $credentials[$this->passwordCredentialKey]);
 
         $user->setResetPasswordToken(null);
 
@@ -129,6 +119,23 @@ class Authenticator {
         $user->onLogin();
 
         return $this->user = $user;
+    }
+
+    /**
+     * @param UserInterface $user
+     * @param $password
+     */
+    public function checkPassword(UserInterface $user, $password)
+    {
+        if(!$this->passwordHasher->checkHash($password, $user->getPassword()))
+        {
+            throw new WrongPasswordException("Incorrect password provided");
+        }
+
+        if($this->passwordHasher->needsRehash($user->getPassword()))
+        {
+            $this->setPassword($user, $password);
+        }
     }
 
     /**
