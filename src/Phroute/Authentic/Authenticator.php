@@ -182,7 +182,7 @@ class Authenticator {
      */
     public function resetPassword(UserInterface $user, $resetCode, $newPassword)
     {
-        if ($user->getResetPasswordToken() === $resetCode)
+        if ($this->constTimeComparison($user->getResetPasswordToken(), $resetCode))
         {
             $this->setPassword($user, $newPassword);
 
@@ -243,14 +243,14 @@ class Authenticator {
             return false;
         }
 
-        if ($user->getRememberToken() !== $persistenceToken)
+        if ($this->constTimeComparison($user->getRememberToken(), $persistenceToken))
         {
-            return false;
+            $this->user = $user;
+
+            return true;
         }
 
-        $this->user = $user;
-
-        return true;
+        return false;
     }
 
     /**
@@ -396,5 +396,29 @@ class Authenticator {
         }
 
         return $user;
+    }
+
+    /**
+     * @param $string1
+     * @param $string2
+     * @return bool
+     */
+    private function constTimeComparison($string1, $string2)
+    {
+        if(defined('hash_compare'))
+        {
+            return hash_compare($string1, $string2);
+        }
+
+        if (strlen($string1) !== strlen($string2)) {
+            return false;
+        }
+
+        $result = 0;
+        for ($i = 0; $i < strlen($string1); $i++) {
+            $result |= ord($string1[$i]) ^ ord($string2[$i]);
+        }
+
+        return 0 === $result;
     }
 }
