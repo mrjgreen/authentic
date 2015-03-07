@@ -405,20 +405,15 @@ class Authenticator {
      */
     private function constTimeComparison($string1, $string2)
     {
-        if(defined('hash_compare'))
-        {
-            return hash_compare($string1, $string2);
-        }
+        $lengthCheck = strlen($string1) === strlen($string2);
 
-        if (strlen($string1) !== strlen($string2)) {
-            return false;
-        }
+        $string1 = $lengthCheck ? $string1 : $string2;
 
         $result = 0;
-        for ($i = 0; $i < strlen($string1); $i++) {
+        for ($i = 0; $i < strlen($string2); $i++) {
             $result |= ord($string1[$i]) ^ ord($string2[$i]);
         }
 
-        return 0 === $result;
+        return $lengthCheck ? 0 === $result : 1 === $result;
     }
 }
