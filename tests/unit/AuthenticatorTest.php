@@ -296,6 +296,23 @@ class AuthenticatorTest extends \PHPUnit_Framework_TestCase {
 		$this->assertTrue($this->authentic->resetPassword($user, 'reset_code', 'foo_bah'));
 	}
 
+	public function testEmptyResetPasswordFailes()
+	{
+		$user = $this->getUserMock();
+
+		$user->shouldReceive('getResetPasswordToken')->andReturn('reset_code');
+
+		$user->shouldReceive('setPassword')->with('hashed_password');
+
+		$this->hasher->shouldReceive('hash')->with('foo_bah')->andReturn('hashed_password');
+
+		$this->assertFalse($this->authentic->resetPassword($user, '', 'foo_bah'));
+		$this->assertFalse($this->authentic->resetPassword($user, null, 'foo_bah'));
+		$this->assertFalse($this->authentic->resetPassword($user, false, 'foo_bah'));
+		$this->assertFalse($this->authentic->resetPassword($user, 0, 'foo_bah'));
+		$this->assertFalse($this->authentic->resetPassword($user, '     ', 'foo_bah'));
+	}
+
 	public function testResetPasswordForLogin()
 	{
 		$authentic = m::mock('Phroute\Authentic\Authenticator[resetPassword]', array(
