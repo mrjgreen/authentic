@@ -182,7 +182,7 @@ class Authenticator {
      */
     public function resetPassword(UserInterface $user, $resetCode, $newPassword)
     {
-        if ($this->constTimeComparison($user->getResetPasswordToken(), $resetCode))
+        if ($resetCode && $this->constTimeComparison($user->getResetPasswordToken(), $resetCode))
         {
             $this->setPassword($user, $newPassword);
 
