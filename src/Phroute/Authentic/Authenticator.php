@@ -388,7 +388,7 @@ class Authenticator {
      * @param $login
      * @return UserInterface
      */
-    private function findUserByLogin($login)
+    public function findUserByLogin($login)
     {
         if(!$user = $this->userRepository->findByLogin($login))
         {
