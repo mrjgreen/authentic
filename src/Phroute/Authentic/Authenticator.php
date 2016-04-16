@@ -55,6 +55,11 @@ class Authenticator {
      */
     protected $randomStringGenerator;
 
+    /**
+     * @var int
+     */
+    protected $tokenLengthBytes = 32;
+
     public function __construct(
         UserRepositoryInterface $userRepository,
         NamedPersistenceInterface $session = null,
@@ -211,7 +216,7 @@ class Authenticator {
      */
     public function generateResetToken(UserInterface $user)
     {
-        $user->setResetPasswordToken($token = $this->randomStringGenerator->generate());
+        $user->setResetPasswordToken($token = $this->randomStringGenerator->generate($this->tokenLengthBytes));
 
         return $token;
     }
@@ -370,7 +375,7 @@ class Authenticator {
      */
     private function storeAuthToken(UserInterface $user, $remember = false)
     {
-        $user->setRememberToken($rememberMeToken = $this->randomStringGenerator->generate());
+        $user->setRememberToken($rememberMeToken = $this->randomStringGenerator->generate($this->tokenLengthBytes));
 
         // Create an array of data to persist to the session and / or cookie
         $toPersist = array($user->getId(), $rememberMeToken);

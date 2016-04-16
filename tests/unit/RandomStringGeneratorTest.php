@@ -10,21 +10,13 @@ class RandomStringGeneratorTest extends \PHPUnit_Framework_TestCase {
     {
         $generator = new RandomStringGenerator();
 
-        $rand1 = $generator->generate(5);
+        for($i = 1; $i < 50; $i++)
+        {
+            $rand1 = $generator->generate($i);
 
-        $this->assertEquals(5, strlen($rand1));
+            $this->assertEquals($i, strlen($rand1));
 
-        $this->assertNotEquals($rand1, $generator->generate(5));
-    }
-
-    public function testItGeneratesTwoLowSecurityRandomStrings()
-    {
-        $generator = new RandomStringGenerator(true);
-
-        $rand1 = $generator->generate(5);
-
-        $this->assertEquals(5, strlen($rand1));
-
-        $this->assertNotEquals($rand1, $generator->generate(5));
+            $this->assertNotEquals($rand1, $generator->generate($i));
+        }
     }
 }
