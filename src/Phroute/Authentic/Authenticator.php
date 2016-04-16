@@ -92,7 +92,7 @@ class Authenticator {
 
         $user = $this->userRepository->registerUser($userDetails);
 
-        return $this->user = $user;
+        return $user;
     }
 
     /**
