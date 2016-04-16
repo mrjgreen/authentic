@@ -14,10 +14,6 @@ class RandomStringGenerator
      */
     public function generate($length = 20)
     {
-        $bytes = random_bytes($length);
-
-        $safeEncode = bin2hex($bytes);
-
-        return substr($safeEncode, 0, $length);
+        return substr(bin2hex(random_bytes($length)), 0, $length);
     }
 }
