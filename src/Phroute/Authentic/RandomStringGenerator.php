@@ -14,6 +14,10 @@ class RandomStringGenerator
      */
     public function generate($length = 20)
     {
-        return substr(bin2hex(random_bytes($length)), 0, $length);
+        $bytes = random_bytes($length * 2);
+
+        $safeEncode = str_replace(array('/', '+', '='), '', base64_encode($bytes));
+
+        return substr($safeEncode, 0, $length);
     }
 }
